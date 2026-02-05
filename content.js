@@ -62,6 +62,11 @@ function runDuplicateCheck() {
 }
 
 function getProductName(row) {
+  const nameEl = row.querySelector('.product-details-name');
+  if (nameEl) {
+    const text = (nameEl.textContent || '').trim();
+    if (text) return text.length > 55 ? text.slice(0, 52) + '…' : text;
+  }
   const link = row.querySelector('a[href*="/p/"]');
   if (link) {
     const text = (link.textContent || link.getAttribute('title') || '').trim();
