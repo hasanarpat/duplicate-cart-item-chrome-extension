@@ -8,7 +8,12 @@ function isOurOwnMutation(mutations) {
       if (el.classList?.contains('dupli-border-svg')) return true;
       if (el.classList?.contains('dupli-glow-label-style')) return true;
       if (el.id === 'duplicate-warning-bounce') return true;
-      if (el.querySelector?.('.dupli-highlight-label, .dupli-border-svg, #duplicate-warning')) return true;
+      if (
+        el.querySelector?.(
+          '.dupli-highlight-label, .dupli-border-svg, #duplicate-warning',
+        )
+      )
+        return true;
     }
   }
   return false;
@@ -20,7 +25,9 @@ const observer = new MutationObserver((mutations) => {
   if (duplicateCheckTimer) clearTimeout(duplicateCheckTimer);
   duplicateCheckTimer = setTimeout(() => {
     duplicateCheckTimer = null;
-    const items = document.querySelectorAll('[data-testid="quantity-selector"]');
+    const items = document.querySelectorAll(
+      '[data-testid="quantity-selector"]',
+    );
     if (items.length > 0) {
       checkDuplicates(items);
     }
@@ -97,7 +104,7 @@ function checkDuplicates(items) {
 
   if (duplicateList.length > 0) {
     showWarning(duplicateList);
-  } else {
+  } else if (items.length > 0) {
     removeWarning();
   }
 }
@@ -232,7 +239,7 @@ function showWarning(duplicateList) {
     background: 'linear-gradient(135deg, #fff6f7 60%, #ffe0e3 100%)',
     color: '#b71c1c',
     padding: '20px 28px 16px 20px',
-    borderRadius: '14px',
+    borderRadius: '7px',
     fontSize: '16px',
     fontWeight: '500',
     zIndex: 9999,
@@ -332,12 +339,12 @@ function initQuantityButtonListeners() {
     'click',
     (e) => {
       const btn = e.target.closest(
-        '[data-testid="quantity-button-decrement"], [data-testid="quantity-button-increment"]'
+        '[data-testid="quantity-button-decrement"], [data-testid="quantity-button-increment"]',
       );
       if (!btn) return;
       setTimeout(runDuplicateCheck, 350);
     },
-    true
+    true,
   );
 }
 
@@ -433,7 +440,7 @@ function initCheckoutButtonListener() {
       e.stopPropagation();
       showCheckoutModal();
     },
-    true
+    true,
   );
 }
 
