@@ -42,16 +42,12 @@ function getBasketRow(quantitySelectorEl) {
 
 function unhighlight(row) {
   if (!row || !row.style) return;
-  const svg = row.querySelector('.dupli-border-svg');
   const label = row.querySelector('.dupli-highlight-label');
-  if (svg) svg.remove();
   if (label) label.remove();
   row.style.border = '';
   row.style.borderRadius = '';
   row.style.boxShadow = '';
   row.style.position = '';
-  row.style.transition = '';
-  row.style.animation = '';
 }
 
 function unhighlightAll() {
@@ -110,118 +106,31 @@ function checkDuplicates(items) {
 }
 
 function highlight(item) {
-  // Apply a sophisticated border with a cut for a label on the top left
+  if (!item || !item.style) return;
   Object.assign(item.style, {
-    border: '2.5px solid #e53935',
-    borderRadius: '15px',
-    boxShadow:
-      '0 0 0 4px rgba(229,57,53,0.14), 0 2px 16px rgba(229,57,53,0.11)',
     position: 'relative',
-    transition:
-      'box-shadow 0.35s cubic-bezier(.29,.8,.61,.99), border-color 0.3s',
-    animation: 'dupliGlow 1.1s cubic-bezier(.77,0,.18,1) 0s 2',
+    border: '2px solid #e53935',
+    borderRadius: '8px',
+    boxShadow: '0 2px 8px rgba(229,57,53,0.2)',
   });
-
-  // Inject border cutout and animated glow keyframes if not already present
-  if (!document.getElementById('dupli-glow-label-style')) {
-    const style = document.createElement('style');
-    style.id = 'dupli-glow-label-style';
-    style.textContent = `
-      @keyframes dupliGlow {
-        0%   { box-shadow: 0 0 0 0 rgba(229,57,53,0.18), 0 2px 6px 0 rgba(229,57,53,0); border-color: #e57373; }
-        15%  { box-shadow: 0 0 10px 2px rgba(229,57,53,0.23), 0 4px 24px 2px rgba(229,57,53,0.19); border-color: #e53935; }
-        60%  { box-shadow: 0 0 18px 7px rgba(229,57,53,0.28), 0 4px 16px 2px rgba(229,57,53,0.23); border-color: #ff8a65; }
-        100% { box-shadow: 0 0 0 4px rgba(229,57,53,0.15), 0 2px 24px rgba(229,57,53,0.14); border-color: #e53935; }
-      }
-      .dupli-border-svg {
-        position: absolute;
-        pointer-events: none;
-        z-index: 10001;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
-        border-radius: 15px;
-        overflow: visible;
-      }
-      .dupli-highlight-label {
-        position: absolute;
-        left: 16px;
-        top: -14px;
-        background: linear-gradient(90deg, #fff6f7 65%, #ffe0e3 100%);
-        color: #d32f2f;
-        font-weight: 700;
-        font-size: 13px;
-        padding: 3.5px 17px 3.5px 17px;
-        border-radius: 7px 7px 7px 0px;
-        box-shadow: 0 2px 8px rgba(229,57,53,0.13);
-        border: 1.5px solid #e57373;
-        border-bottom: none;
-        border-right: none;
-        z-index: 10002;
-        font-family: inherit, sans-serif;
-        letter-spacing: 0.5px;
-        user-select: none;
-        pointer-events: none;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  // Avoid duplicate SVG border or label
-  if (!item.querySelector('.dupli-border-svg')) {
-    // Remove the border from the underlying element (we'll draw it with SVG)
-    item.style.border = 'none';
-    // Wait DOM update to get real size
-    setTimeout(() => {
-      const w = item.offsetWidth;
-      const h = item.offsetHeight;
-      // Cut width for label
-      const labelPad = 34 + 84; // left + label width guess
-      const dupliSVG = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'svg',
-      );
-      dupliSVG.classList.add('dupli-border-svg');
-      dupliSVG.setAttribute('width', w);
-      dupliSVG.setAttribute('height', h);
-      dupliSVG.setAttribute('style', `width:${w}px;height:${h}px;`);
-      // Path with top border cut for label
-      const borderRadius = 15,
-        stroke = 2.5;
-      const cutStart = 14,
-        cutEnd = cutStart + 110;
-      dupliSVG.innerHTML = `
-        <path d="
-          M ${borderRadius},${stroke / 2}
-          H ${cutStart}
-          M ${cutEnd},${stroke / 2}
-          H ${w - borderRadius} 
-          Q ${w - stroke / 2},${stroke / 2} ${w - stroke / 2},${borderRadius}
-          V ${h - borderRadius}
-          Q ${w - stroke / 2},${h - stroke / 2} ${w - borderRadius},${h - stroke / 2} 
-          H ${borderRadius}
-          Q ${stroke / 2},${h - stroke / 2} ${stroke / 2},${h - borderRadius}
-          V ${borderRadius}
-          Q ${stroke / 2},${stroke / 2} ${borderRadius},${stroke / 2}
-        " 
-          fill="none"
-          stroke="#e53935"
-          stroke-width="${stroke}"
-          stroke-linecap="round"
-        />
-      `;
-      item.appendChild(dupliSVG);
-    }, 0);
-  }
-  if (!item.querySelector('.dupli-highlight-label')) {
-    const label = document.createElement('div');
-    label.className = 'dupli-highlight-label';
-    label.textContent = 'Çoğaltılmış Ürün';
-    item.appendChild(label);
-  }
-  // Make sure the element is relatively positioned
-  if (getComputedStyle(item).position === 'static') {
-    item.style.position = 'relative';
-  }
+  if (item.querySelector('.dupli-highlight-label')) return;
+  const label = document.createElement('div');
+  label.className = 'dupli-highlight-label';
+  label.textContent = 'Çoğaltılmış Ürün';
+  Object.assign(label.style, {
+    position: 'absolute',
+    top: '-10px',
+    left: '12px',
+    background: '#fff5f5',
+    color: '#c62828',
+    fontSize: '12px',
+    fontWeight: '600',
+    padding: '2px 8px',
+    borderRadius: '4px',
+    border: '1px solid #e57373',
+    zIndex: 10,
+  });
+  item.appendChild(label);
 }
 
 function showWarning(duplicateList) {
