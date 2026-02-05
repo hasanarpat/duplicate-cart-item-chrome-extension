@@ -257,16 +257,23 @@ function showWarning(duplicateList) {
     'fontSize: 13px; fontWeight: 600; color: #c62828; marginTop: 6px;';
   box.appendChild(listTitle);
 
+  const listWrapper = document.createElement('div');
+  listWrapper.className = 'duplicate-warning-list-wrapper';
+  listWrapper.style.cssText =
+    'height: 180px; overflow-y: scroll; overflow-x: hidden; margin-top: 6px; flex-shrink: 0;';
+
   const list = document.createElement('ul');
+  list.className = 'duplicate-warning-list';
   list.style.cssText =
-    'margin: 6px 0 0; paddingLeft: 20px; fontSize: 14px; lineHeight: 1.5; color: #b71c1c;';
+    'margin: 0; padding-left: 22px; font-size: 14px; line-height: 1.5; color: #b71c1c;';
   duplicateList.forEach(({ name, count }) => {
     const li = document.createElement('li');
     li.textContent = `${name} — ${count} adet`;
     li.style.marginBottom = '4px';
     list.appendChild(li);
   });
-  box.appendChild(list);
+  listWrapper.appendChild(list);
+  box.appendChild(listWrapper);
 
   const brand = document.createElement('span');
   brand.innerText = '🛒 Duplicheck Extension';
@@ -295,6 +302,21 @@ function showWarning(duplicateList) {
       }
     `;
     document.head.appendChild(style);
+  }
+
+  if (!document.getElementById('duplicate-warning-list-style')) {
+    const listStyle = document.createElement('style');
+    listStyle.id = 'duplicate-warning-list-style';
+    listStyle.textContent = `
+      #duplicate-warning .duplicate-warning-list {
+        list-style-type: disc !important;
+        list-style-position: outside !important;
+      }
+      #duplicate-warning .duplicate-warning-list-wrapper {
+        -webkit-overflow-scrolling: touch;
+      }
+    `;
+    document.head.appendChild(listStyle);
   }
 
   document.body.appendChild(box);
