@@ -341,13 +341,96 @@ function initQuantityButtonListeners() {
   );
 }
 
+let checkoutModalAlreadyShown = false;
+
+function showCheckoutModal() {
+  if (checkoutModalAlreadyShown) return;
+  const existing = document.getElementById('checkout-modal-overlay');
+  if (existing) return;
+
+  checkoutModalAlreadyShown = true;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'checkout-modal-overlay';
+  Object.assign(overlay.style, {
+    position: 'fixed',
+    inset: '0',
+    background: 'rgba(0,0,0,0.5)',
+    zIndex: 10001,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px',
+  });
+
+  const modal = document.createElement('div');
+  Object.assign(modal.style, {
+    background: '#fff',
+    borderRadius: '14px',
+    padding: '28px 24px',
+    maxWidth: '380px',
+    width: '100%',
+    boxShadow: '0 24px 48px rgba(0,0,0,0.2)',
+    textAlign: 'center',
+  });
+
+  const icon = document.createElement('div');
+  icon.textContent = '🛒';
+  icon.style.cssText = 'font-size: 48px; margin-bottom: 12px;';
+
+  const title = document.createElement('div');
+  title.textContent = 'Ödeme butonuna tıklandı';
+  title.style.cssText =
+    'font-size: 18px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px;';
+
+  const message = document.createElement('p');
+  message.textContent = 'Sepetinizi kontrol edip ödemeye devam edebilirsiniz.';
+  message.style.cssText =
+    'font-size: 14px; color: #555; line-height: 1.5; margin: 0 0 24px;';
+
+  const btn = document.createElement('button');
+  btn.textContent = 'Tamam';
+  btn.type = 'button';
+  Object.assign(btn.style, {
+    width: '100%',
+    padding: '12px 24px',
+    fontSize: '15px',
+    fontWeight: '600',
+    color: '#fff',
+    background: 'linear-gradient(135deg, #f27a24 0%, #e06d1a 100%)',
+    border: 'none',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    boxShadow: '0 4px 12px rgba(242,122,36,0.35)',
+  });
+  btn.addEventListener('click', () => overlay.remove());
+  btn.addEventListener('mouseenter', () => {
+    btn.style.background = 'linear-gradient(135deg, #e06d1a 0%, #c96118 100%)';
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.background = 'linear-gradient(135deg, #f27a24 0%, #e06d1a 100%)';
+  });
+
+  modal.append(icon, title, message, btn);
+  overlay.appendChild(modal);
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  document.body.appendChild(overlay);
+}
+
 function initCheckoutButtonListener() {
   document.body.addEventListener(
     'click',
     (e) => {
       const btn = e.target.closest('[data-testid="checkout-button"]');
       if (!btn) return;
-      alert('Ödeme butonuna tıklandı.');
+      if (checkoutModalAlreadyShown) return;
+      e.preventDefault();
+      e.stopPropagation();
+      showCheckoutModal();
     },
     true
   );
