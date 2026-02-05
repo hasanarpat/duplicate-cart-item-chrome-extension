@@ -341,9 +341,22 @@ function initQuantityButtonListeners() {
   );
 }
 
+function initCheckoutButtonListener() {
+  document.body.addEventListener(
+    'click',
+    (e) => {
+      const btn = e.target.closest('[data-testid="checkout-button"]');
+      if (!btn) return;
+      alert('Ödeme butonuna tıklandı.');
+    },
+    true
+  );
+}
+
 observer.observe(document.body, {
   childList: true,
   subtree: true,
 });
 
 initQuantityButtonListeners();
+initCheckoutButtonListener();
