@@ -5,20 +5,55 @@ const observer = new MutationObserver(() => {
   }
 });
 
+function getBasketRow(quantitySelectorEl) {
+  let row = quantitySelectorEl;
+  for (let i = 0; i < 8 && row; i++) row = row.parentElement;
+  return row;
+}
+
+function unhighlight(row) {
+  if (!row || !row.style) return;
+  const svg = row.querySelector('.dupli-border-svg');
+  const label = row.querySelector('.dupli-highlight-label');
+  if (svg) svg.remove();
+  if (label) label.remove();
+  row.style.border = '';
+  row.style.borderRadius = '';
+  row.style.boxShadow = '';
+  row.style.position = '';
+  row.style.transition = '';
+  row.style.animation = '';
+}
+
+function unhighlightAll() {
+  document.querySelectorAll('.dupli-highlight-label').forEach((label) => {
+    const row = label.parentElement;
+    if (row) unhighlight(row);
+  });
+}
+
+function runDuplicateCheck() {
+  const items = document.querySelectorAll('[data-testid="quantity-selector"]');
+  if (items.length === 0) return;
+  unhighlightAll();
+  checkDuplicates(items);
+}
+
 function checkDuplicates(items) {
   let hasDuplicate = false;
   items.forEach((item) => {
-    if (item.value > 1) {
-      highlight(
-        item.parentElement.parentElement.parentElement.parentElement
-          .parentElement.parentElement.parentElement.parentElement
-          .parentElement,
-      );
+    const row = getBasketRow(item);
+    if (!row) return;
+    const value = Number(item.value) || 0;
+    if (value > 1) {
+      highlight(row);
       hasDuplicate = true;
     }
   });
   if (hasDuplicate) {
     showWarning();
+  } else {
+    removeWarning();
   }
 }
 
@@ -202,7 +237,28 @@ function showWarning() {
   document.body.appendChild(box);
 }
 
+function removeWarning() {
+  const box = document.getElementById('duplicate-warning');
+  if (box) box.remove();
+}
+
+function initQuantityButtonListeners() {
+  document.body.addEventListener(
+    'click',
+    (e) => {
+      const btn = e.target.closest(
+        '[data-testid="quantity-button-decrement"], [data-testid="quantity-button-increment"]'
+      );
+      if (!btn) return;
+      setTimeout(runDuplicateCheck, 350);
+    },
+    true
+  );
+}
+
 observer.observe(document.body, {
   childList: true,
   subtree: true,
 });
+
+initQuantityButtonListeners();
