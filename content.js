@@ -384,7 +384,8 @@ function showCheckoutModal() {
     'font-size: 18px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px;';
 
   const message = document.createElement('p');
-  message.textContent = 'Sepetinizi kontrol edip ödemeye devam edebilirsiniz.';
+  message.textContent =
+    'Sepetinizde aynı üründen birden çok defa var, devam etmeden önce gözden geçirin.';
   message.style.cssText =
     'font-size: 14px; color: #555; line-height: 1.5; margin: 0 0 24px;';
 
