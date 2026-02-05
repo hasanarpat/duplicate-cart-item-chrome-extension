@@ -1,8 +1,30 @@
-const observer = new MutationObserver(() => {
-  const items = document.querySelectorAll('[data-testid="quantity-selector"]');
-  if (items.length > 0) {
-    checkDuplicates(items);
+function isOurOwnMutation(mutations) {
+  for (const m of mutations) {
+    for (const n of m.addedNodes) {
+      if (n.nodeType !== 1) continue;
+      const el = n;
+      if (el.id === 'duplicate-warning') return true;
+      if (el.classList?.contains('dupli-highlight-label')) return true;
+      if (el.classList?.contains('dupli-border-svg')) return true;
+      if (el.classList?.contains('dupli-glow-label-style')) return true;
+      if (el.id === 'duplicate-warning-bounce') return true;
+      if (el.querySelector?.('.dupli-highlight-label, .dupli-border-svg, #duplicate-warning')) return true;
+    }
   }
+  return false;
+}
+
+let duplicateCheckTimer = null;
+const observer = new MutationObserver((mutations) => {
+  if (isOurOwnMutation(mutations)) return;
+  if (duplicateCheckTimer) clearTimeout(duplicateCheckTimer);
+  duplicateCheckTimer = setTimeout(() => {
+    duplicateCheckTimer = null;
+    const items = document.querySelectorAll('[data-testid="quantity-selector"]');
+    if (items.length > 0) {
+      checkDuplicates(items);
+    }
+  }, 200);
 });
 
 function getBasketRow(quantitySelectorEl) {
@@ -39,19 +61,37 @@ function runDuplicateCheck() {
   checkDuplicates(items);
 }
 
+function getProductName(row) {
+  const link = row.querySelector('a[href*="/p/"]');
+  if (link) {
+    const text = (link.textContent || link.getAttribute('title') || '').trim();
+    if (text) return text.length > 55 ? text.slice(0, 52) + '…' : text;
+  }
+  return 'Ürün';
+}
+
 function checkDuplicates(items) {
-  let hasDuplicate = false;
+  const duplicateList = [];
+  const seenRows = new Set();
+
   items.forEach((item) => {
     const row = getBasketRow(item);
     if (!row) return;
     const value = Number(item.value) || 0;
     if (value > 1) {
       highlight(row);
-      hasDuplicate = true;
+      if (!seenRows.has(row)) {
+        seenRows.add(row);
+        duplicateList.push({
+          name: getProductName(row),
+          count: value,
+        });
+      }
     }
   });
-  if (hasDuplicate) {
-    showWarning();
+
+  if (duplicateList.length > 0) {
+    showWarning(duplicateList);
   } else {
     removeWarning();
   }
@@ -172,15 +212,12 @@ function highlight(item) {
   }
 }
 
-function showWarning() {
-  if (document.getElementById('duplicate-warning')) return;
+function showWarning(duplicateList) {
+  removeWarning();
 
   const box = document.createElement('div');
   box.id = 'duplicate-warning';
-  box.innerText =
-    '⚠️ Sepetinde aynı üründen birden fazla var. Satın almadan önce kontrol et.';
 
-  // Daha çekici bir UI için stil ve animasyon ekle, marka ismini sona ekle
   Object.assign(box.style, {
     position: 'fixed',
     bottom: '28px',
@@ -203,11 +240,33 @@ function showWarning() {
     animation: 'bounceWarning 1.2s cubic-bezier(.77,0,.18,1) 0s 3',
   });
 
-  // Küçük marka etiketi (extension adı)
+  const title = document.createElement('div');
+  title.textContent =
+    '⚠️ Sepetinde aynı üründen birden fazla var. Satın almadan önce kontrol et.';
+  title.style.marginBottom = '4px';
+  box.appendChild(title);
+
+  const listTitle = document.createElement('div');
+  listTitle.textContent = 'Adet fazlası olan ürünler:';
+  listTitle.style.cssText =
+    'fontSize: 13px; fontWeight: 600; color: #c62828; marginTop: 6px;';
+  box.appendChild(listTitle);
+
+  const list = document.createElement('ul');
+  list.style.cssText =
+    'margin: 6px 0 0; paddingLeft: 20px; fontSize: 14px; lineHeight: 1.5; color: #b71c1c;';
+  duplicateList.forEach(({ name, count }) => {
+    const li = document.createElement('li');
+    li.textContent = `${name} — ${count} adet`;
+    li.style.marginBottom = '4px';
+    list.appendChild(li);
+  });
+  box.appendChild(list);
+
   const brand = document.createElement('span');
   brand.innerText = '🛒 Duplicheck Extension';
   Object.assign(brand.style, {
-    marginTop: '7px',
+    marginTop: '10px',
     fontSize: '12px',
     color: '#e57373',
     letterSpacing: '0.5px',
@@ -217,7 +276,6 @@ function showWarning() {
   });
   box.appendChild(brand);
 
-  // Animasyon ekle (sadece bir defa eklenmesini sağla)
   if (!document.getElementById('duplicate-warning-bounce')) {
     const style = document.createElement('style');
     style.id = 'duplicate-warning-bounce';
