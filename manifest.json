@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Trendyol Duplicate Guard",
+  "version": "0.1",
+  "description": "Trendyol sepetinde aynı ürünü iki kere eklemeyi önler",
+  "permissions": ["activeTab"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.trendyol.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
