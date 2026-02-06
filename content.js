@@ -1,3 +1,34 @@
+const SITE_CONFIG = {
+  'www.trendyol.com': {
+    quantitySelector: '[data-testid="quantity-selector"]',
+    rowParentCount: 8,
+    productNameSelector: '.product-details-name',
+    quantityButtonSelectors:
+      '[data-testid="quantity-button-decrement"], [data-testid="quantity-button-increment"]',
+    checkoutButtonSelector: '[data-testid="checkout-button"]',
+  },
+  'www.hepsiburada.com': {
+    quantitySelector: 'input[name="quantity"]',
+    rowParentCount: 6,
+    productNameSelector: '[class*="product_name"]',
+    quantityButtonSelectors:
+      'a[aria-label="Ürünü Azalt"], a[aria-label="Ürünü Arttır"]',
+    checkoutButtonSelector: null,
+  },
+  'checkout.hepsiburada.com': {
+    quantitySelector: 'input[name="quantity"]',
+    rowParentCount: 6,
+    productNameSelector: '[class*="product_name"]',
+    quantityButtonSelectors:
+      'a[aria-label="Ürünü Azalt"], a[aria-label="Ürünü Arttır"]',
+    checkoutButtonSelector: null,
+  },
+};
+
+function getSiteConfig() {
+  return SITE_CONFIG[location.hostname] || null;
+}
+
 function isOurOwnMutation(mutations) {
   for (const m of mutations) {
     for (const n of m.addedNodes) {
@@ -22,21 +53,21 @@ function isOurOwnMutation(mutations) {
 let duplicateCheckTimer = null;
 const observer = new MutationObserver((mutations) => {
   if (isOurOwnMutation(mutations)) return;
+  const config = getSiteConfig();
+  if (!config) return;
   if (duplicateCheckTimer) clearTimeout(duplicateCheckTimer);
   duplicateCheckTimer = setTimeout(() => {
     duplicateCheckTimer = null;
-    const items = document.querySelectorAll(
-      '[data-testid="quantity-selector"]',
-    );
+    const items = document.querySelectorAll(config.quantitySelector);
     if (items.length > 0) {
-      checkDuplicates(items);
+      checkDuplicates(items, config);
     }
   }, 200);
 });
 
-function getBasketRow(quantitySelectorEl) {
-  let row = quantitySelectorEl;
-  for (let i = 0; i < 8 && row; i++) row = row.parentElement;
+function getBasketRow(quantityEl, parentCount) {
+  let row = quantityEl;
+  for (let i = 0; i < parentCount && row; i++) row = row.parentElement;
   return row;
 }
 
@@ -58,19 +89,25 @@ function unhighlightAll() {
 }
 
 function runDuplicateCheck() {
-  const items = document.querySelectorAll('[data-testid="quantity-selector"]');
+  const config = getSiteConfig();
+  if (!config) return;
+  const items = document.querySelectorAll(config.quantitySelector);
+  console.log(items, 'items');
+  console.log(config, 'config');
   if (items.length === 0) return;
   unhighlightAll();
-  checkDuplicates(items);
+  checkDuplicates(items, config);
 }
 
-function getProductName(row) {
-  const nameEl = row.querySelector('.product-details-name');
-  if (nameEl) {
-    const text = (nameEl.textContent || '').trim();
-    if (text) return text.length > 55 ? text.slice(0, 52) + '…' : text;
+function getProductName(row, config) {
+  if (config?.productNameSelector) {
+    const nameEl = row.querySelector(config.productNameSelector);
+    if (nameEl) {
+      const text = (nameEl.textContent || '').trim();
+      if (text) return text.length > 55 ? text.slice(0, 52) + '…' : text;
+    }
   }
-  const link = row.querySelector('a[href*="/p/"]');
+  const link = row.querySelector('a[href*="/p/"], a[href*="/product/"]');
   if (link) {
     const text = (link.textContent || link.getAttribute('title') || '').trim();
     if (text) return text.length > 55 ? text.slice(0, 52) + '…' : text;
@@ -78,12 +115,13 @@ function getProductName(row) {
   return 'Ürün';
 }
 
-function checkDuplicates(items) {
+function checkDuplicates(items, config) {
   const duplicateList = [];
   const seenRows = new Set();
+  const parentCount = config.rowParentCount ?? 8;
 
   items.forEach((item) => {
-    const row = getBasketRow(item);
+    const row = getBasketRow(item, parentCount);
     if (!row) return;
     const value = Number(item.value) || 0;
     if (value > 1) {
@@ -91,7 +129,7 @@ function checkDuplicates(items) {
       if (!seenRows.has(row)) {
         seenRows.add(row);
         duplicateList.push({
-          name: getProductName(row),
+          name: getProductName(row, config),
           count: value,
         });
       }
@@ -247,14 +285,27 @@ function initQuantityButtonListeners() {
   document.body.addEventListener(
     'click',
     (e) => {
-      const btn = e.target.closest(
-        '[data-testid="quantity-button-decrement"], [data-testid="quantity-button-increment"]',
-      );
+      const config = getSiteConfig();
+      if (!config?.quantityButtonSelectors) return;
+      const btn = e.target.closest(config.quantityButtonSelectors);
       if (!btn) return;
-      setTimeout(runDuplicateCheck, 350);
+      setTimeout(runDuplicateCheck, 400);
+      setTimeout(runDuplicateCheck, 850);
     },
     true,
   );
+}
+
+function initQuantityChangeListener() {
+  const runOnQuantityChange = (e) => {
+    const config = getSiteConfig();
+    if (!config) return;
+    if (typeof e.target.matches === 'function' && e.target.matches(config.quantitySelector)) {
+      setTimeout(runDuplicateCheck, 200);
+    }
+  };
+  document.body.addEventListener('change', runOnQuantityChange, true);
+  document.body.addEventListener('input', runOnQuantityChange, true);
 }
 
 let checkoutModalAlreadyShown = false;
@@ -342,7 +393,9 @@ function initCheckoutButtonListener() {
   document.body.addEventListener(
     'click',
     (e) => {
-      const btn = e.target.closest('[data-testid="checkout-button"]');
+      const config = getSiteConfig();
+      if (!config?.checkoutButtonSelector) return;
+      const btn = e.target.closest(config.checkoutButtonSelector);
       if (!btn) return;
       if (checkoutModalAlreadyShown) return;
       e.preventDefault();
@@ -359,4 +412,5 @@ observer.observe(document.body, {
 });
 
 initQuantityButtonListeners();
+initQuantityChangeListener();
 initCheckoutButtonListener();
