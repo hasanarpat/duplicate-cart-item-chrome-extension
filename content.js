@@ -388,6 +388,7 @@ function showCheckoutModal() {
   message.style.cssText =
     'font-size: 14px; color: #555; line-height: 1.5; margin: 0 0 24px;';
 
+  const isAmazon = location.hostname === 'www.amazon.com.tr';
   const btn = document.createElement('button');
   btn.textContent = 'Tamam';
   btn.type = 'button';
@@ -396,19 +397,23 @@ function showCheckoutModal() {
     padding: '12px 24px',
     fontSize: '15px',
     fontWeight: '600',
-    color: '#fff',
-    background: 'linear-gradient(135deg, #f27a24 0%, #e06d1a 100%)',
+    color: isAmazon ? '#111' : '#fff',
+    background: isAmazon
+      ? '#ffce12'
+      : 'linear-gradient(135deg, #f27a24 0%, #e06d1a 100%)',
     border: 'none',
     borderRadius: '10px',
     cursor: 'pointer',
-    boxShadow: '0 4px 12px rgba(242,122,36,0.35)',
+    boxShadow: isAmazon
+      ? '0 4px 12px rgba(255,206,18,0.4)'
+      : '0 4px 12px rgba(242,122,36,0.35)',
   });
   btn.addEventListener('click', () => overlay.remove());
   btn.addEventListener('mouseenter', () => {
-    btn.style.background = 'linear-gradient(135deg, #e06d1a 0%, #c96118 100%)';
+    btn.style.background = isAmazon ? '#e6b80f' : 'linear-gradient(135deg, #e06d1a 0%, #c96118 100%)';
   });
   btn.addEventListener('mouseleave', () => {
-    btn.style.background = 'linear-gradient(135deg, #f27a24 0%, #e06d1a 100%)';
+    btn.style.background = isAmazon ? '#ffce12' : 'linear-gradient(135deg, #f27a24 0%, #e06d1a 100%)';
   });
 
   modal.append(icon, title, message, btn);
