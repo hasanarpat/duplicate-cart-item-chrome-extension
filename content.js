@@ -32,11 +32,11 @@ const SITE_CONFIG = {
     checkoutButtonSelector: '[data-testid="checkout-button"]',
   },
   'www.boyner.com.tr': {
-    quantitySelector: 'input[name="quantity"]',
-    rowParentCount: 6,
-    productNameSelector: null,
-    quantityButtonSelectors: null,
-    checkoutButtonSelector: null,
+    quantitySelector: 'input[class*="product-counter_productCounterInput"]',
+    rowParentCount: 5,
+    productNameSelector: '[class*="product-info_productInfoBoxTextWrapperTitle"]',
+    quantityButtonSelectors: '[class*="product-counter_productCounterButton"]',
+    checkoutButtonSelector: '[aria-label="SEPETİ ONAYLA"]',
   },
   'www.amazon.com.tr': {
     quantitySelector: '[data-a-selector="inner-value"]',
