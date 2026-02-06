@@ -24,11 +24,12 @@ const SITE_CONFIG = {
     checkoutButtonSelector: '#continue_step_btn',
   },
   'www.trendyol-milla.com': {
-    quantitySelector: 'input[name="quantity"]',
+    quantitySelector: '[data-testid="quantity-selector"]',
     rowParentCount: 6,
-    productNameSelector: null,
-    quantityButtonSelectors: null,
-    checkoutButtonSelector: null,
+    productNameSelector: '.product-details-name',
+    quantityButtonSelectors:
+      '[data-testid="quantity-button-decrement"], [data-testid="quantity-button-increment"]',
+    checkoutButtonSelector: '[data-testid="checkout-button"]',
   },
   'www.boyner.com.tr': {
     quantitySelector: 'input[name="quantity"]',
