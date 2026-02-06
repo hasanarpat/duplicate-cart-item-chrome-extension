@@ -37,6 +37,12 @@ const SITE_CONFIG = {
     productNameSelector: '[class*="product-info_productInfoBoxTextWrapperTitle"]',
     quantityButtonSelectors: '[class*="product-counter_productCounterButton"]',
     checkoutButtonSelector: '[aria-label="SEPETİ ONAYLA"]',
+    modalButton: {
+      background: 'rgb(245, 9, 9)',
+      hover: 'rgb(220, 8, 8)',
+      textColor: '#fff',
+      boxShadow: '0 4px 12px rgba(245,9,9,0.35)',
+    },
   },
   'www.amazon.com.tr': {
     quantitySelector: '[data-a-selector="inner-value"]',
@@ -45,6 +51,12 @@ const SITE_CONFIG = {
     quantityButtonSelectors:
       '[data-a-selector="decrement"], [data-a-selector="increment"]',
     checkoutButtonSelector: '[data-feature-id="proceed-to-checkout-action"]',
+    modalButton: {
+      background: '#ffce12',
+      hover: '#e6b80f',
+      textColor: '#111',
+      boxShadow: '0 4px 12px rgba(255,206,18,0.4)',
+    },
   },
   'www.teknosa.com': {
     quantitySelector: 'input[name="quantity"]',
@@ -388,7 +400,17 @@ function showCheckoutModal() {
   message.style.cssText =
     'font-size: 14px; color: #555; line-height: 1.5; margin: 0 0 24px;';
 
-  const isAmazon = location.hostname === 'www.amazon.com.tr';
+  const config = getSiteConfig();
+  const defaultModalBtn = {
+    background: 'linear-gradient(135deg, #f27a24 0%, #e06d1a 100%)',
+    hover: 'linear-gradient(135deg, #e06d1a 0%, #c96118 100%)',
+    textColor: '#fff',
+    boxShadow: '0 4px 12px rgba(242,122,36,0.35)',
+  };
+  const btnStyle = config?.modalButton
+    ? { ...defaultModalBtn, ...config.modalButton }
+    : defaultModalBtn;
+
   const btn = document.createElement('button');
   btn.textContent = 'Tamam';
   btn.type = 'button';
@@ -397,23 +419,19 @@ function showCheckoutModal() {
     padding: '12px 24px',
     fontSize: '15px',
     fontWeight: '600',
-    color: isAmazon ? '#111' : '#fff',
-    background: isAmazon
-      ? '#ffce12'
-      : 'linear-gradient(135deg, #f27a24 0%, #e06d1a 100%)',
+    color: btnStyle.textColor,
+    background: btnStyle.background,
     border: 'none',
     borderRadius: '10px',
     cursor: 'pointer',
-    boxShadow: isAmazon
-      ? '0 4px 12px rgba(255,206,18,0.4)'
-      : '0 4px 12px rgba(242,122,36,0.35)',
+    boxShadow: btnStyle.boxShadow,
   });
   btn.addEventListener('click', () => overlay.remove());
   btn.addEventListener('mouseenter', () => {
-    btn.style.background = isAmazon ? '#e6b80f' : 'linear-gradient(135deg, #e06d1a 0%, #c96118 100%)';
+    btn.style.background = btnStyle.hover;
   });
   btn.addEventListener('mouseleave', () => {
-    btn.style.background = isAmazon ? '#ffce12' : 'linear-gradient(135deg, #f27a24 0%, #e06d1a 100%)';
+    btn.style.background = btnStyle.background;
   });
 
   modal.append(icon, title, message, btn);
