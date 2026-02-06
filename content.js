@@ -39,6 +39,7 @@ const SITE_CONFIG = {
     productNameSelector:
       '[class*="product-info_productInfoBoxTextWrapperTitle"]',
     quantityButtonSelectors: '[class*="product-counter_productCounterButton"]',
+    setQuantityViaButtons: true,
     checkoutButtonSelector: '[aria-label="SEPETİ ONAYLA"]',
     modalButton: {
       background: 'rgb(245, 9, 9)',
@@ -310,31 +311,39 @@ function getQuantityValue(quantityEl) {
 
 /**
  * Set quantity in a cart row to a target value. Works with input or +/- button UI.
+ * When config.setQuantityViaButtons is true, always use +/- clicks (for sites where
+ * input is controlled and direct value change does not persist, e.g. Boyner).
  */
 function setQuantityInRow(row, targetValue, config) {
   const quantityEl = row.querySelector(config.quantitySelector);
   if (!quantityEl) return;
   const current = getQuantityValue(quantityEl);
   if (current === targetValue) return;
-  if (quantityEl.tagName === 'INPUT' || quantityEl.getAttribute?.('contenteditable') === 'true') {
-    quantityEl.value = String(targetValue);
-    quantityEl.dispatchEvent(new Event('input', { bubbles: true }));
-    quantityEl.dispatchEvent(new Event('change', { bubbles: true }));
-    return;
-  }
+
   const decrementSel = config.quantityButtonSelectors?.split(',')[0]?.trim();
   const incrementSel = config.quantityButtonSelectors?.split(',')[1]?.trim();
   const decBtn = decrementSel ? row.querySelector(decrementSel) : null;
   const incBtn = incrementSel ? row.querySelector(incrementSel) : null;
-  const clicks = current - targetValue;
-  if (clicks > 0 && decBtn) {
-    for (let i = 0; i < clicks; i++) {
-      setTimeout(() => decBtn.click(), i * 120);
+  const useButtons = config.setQuantityViaButtons && (decBtn || incBtn);
+
+  if (useButtons) {
+    const clicks = current - targetValue;
+    if (clicks > 0 && decBtn) {
+      for (let i = 0; i < clicks; i++) {
+        setTimeout(() => decBtn.click(), i * 150);
+      }
+    } else if (clicks < 0 && incBtn) {
+      for (let i = 0; i < -clicks; i++) {
+        setTimeout(() => incBtn.click(), i * 150);
+      }
     }
-  } else if (clicks < 0 && incBtn) {
-    for (let i = 0; i < -clicks; i++) {
-      setTimeout(() => incBtn.click(), i * 120);
-    }
+    return;
+  }
+
+  if (quantityEl.tagName === 'INPUT' || quantityEl.getAttribute?.('contenteditable') === 'true') {
+    quantityEl.value = String(targetValue);
+    quantityEl.dispatchEvent(new Event('input', { bubbles: true }));
+    quantityEl.dispatchEvent(new Event('change', { bubbles: true }));
   }
 }
 
