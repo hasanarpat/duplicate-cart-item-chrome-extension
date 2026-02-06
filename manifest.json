@@ -21,6 +21,7 @@
     {
       "matches": [
         "https://www.trendyol.com/*",
+        "https://www.hepsiburada.com/*",
         "https://checkout.hepsiburada.com/*",
         "https://www.trendyol-milla.com/*",
         "https://www.boyner.com.tr/*",
@@ -33,7 +34,10 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "duplicheck-cart-guard@addon",
-      "strict_min_version": "109.0"
+      "strict_min_version": "109.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   }
 }
