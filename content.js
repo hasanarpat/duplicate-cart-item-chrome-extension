@@ -1,8 +1,9 @@
 const SITE_CONFIG = {
   'www.trendyol.com': {
     quantitySelector: '[data-testid="quantity-selector"]',
-    rowParentCount: 8,
+    rowParentCount: 6,
     productNameSelector: '.product-details-name',
+    productUrlSelector: 'a.product-details-name',
     quantityButtonSelectors:
       '[data-testid="quantity-button-decrement"], [data-testid="quantity-button-increment"]',
     checkoutButtonSelector: '[data-testid="checkout-button"]',
@@ -27,6 +28,7 @@ const SITE_CONFIG = {
     quantitySelector: '[data-testid="quantity-selector"]',
     rowParentCount: 6,
     productNameSelector: '.product-details-name',
+    productUrlSelector: 'a.product-details-name',
     quantityButtonSelectors:
       '[data-testid="quantity-button-decrement"], [data-testid="quantity-button-increment"]',
     checkoutButtonSelector: '[data-testid="checkout-button"]',
@@ -156,26 +158,127 @@ function getProductName(row, config) {
   return 'Ürün';
 }
 
-function checkDuplicates(items, config) {
-  const duplicateList = [];
-  const seenRows = new Set();
-  const parentCount = config.rowParentCount ?? 8;
+/**
+ * Normalize product URL: pathname only, no query params. Same URL = same product (same page).
+ */
+function getProductUrl(row, config) {
+  let link = null;
+  if (config?.productUrlSelector) {
+    link = row.querySelector(config.productUrlSelector);
+  }
+  if (!link && config?.productNameSelector) {
+    const el = row.querySelector(config.productNameSelector);
+    if (el?.tagName === 'A' && el.href) link = el;
+  }
+  if (!link) {
+    link = row.querySelector(
+      'a[href*="/p/"], a[href*="/product/"], a[href*="-p-"], a[href*="/gp/product/"], a[href*="/brand/"], a.product-details-name[href], a.prd-row-link[href]'
+    );
+  }
+  if (!link || !link.href) return '';
+  try {
+    const url = new URL(link.href, location.origin);
+    return url.pathname;
+  } catch {
+    const href = link.getAttribute('href') || '';
+    return href.split('?')[0].split('#')[0];
+  }
+}
 
-  items.forEach((item) => {
-    const row = getBasketRow(item, parentCount);
+/**
+ * Seller id/name if present. Different seller = NOT duplicate.
+ */
+function getSeller(row, config) {
+  if (!config?.sellerSelector) return '';
+  const el = row.querySelector(config.sellerSelector);
+  if (!el) return '';
+  return (el.textContent || el.getAttribute('data-seller-id') || '').trim();
+}
+
+/**
+ * Variant (size/color etc.) if detectable. Different variant = NOT duplicate.
+ */
+function getVariant(row, config) {
+  if (!config?.variantSelector) return '';
+  const el = row.querySelector(config.variantSelector);
+  if (!el) return '';
+  return (el.textContent || '').trim();
+}
+
+/**
+ * Build a stable key for grouping: same key = same product (same URL + seller + variant).
+ */
+function getItemKey(row, config) {
+  const url = getProductUrl(row, config);
+  const seller = getSeller(row, config);
+  const variant = getVariant(row, config);
+  return [url, seller, variant].join('|');
+}
+
+/**
+ * Get quantity value from quantity element (input.value or textContent for span).
+ */
+function getQuantityValue(quantityEl) {
+  return (
+    Number(quantityEl.value ?? String(quantityEl.textContent || '').trim()) || 0
+  );
+}
+
+/**
+ * Improved duplicate detection. Products are duplicates ONLY if:
+ * - Product URL (without query params) is the same
+ * - Seller is the same (if seller info exists)
+ * - Quantity > 1 OR same item appears in multiple rows
+ * Different sellers or different variants = NOT duplicate.
+ *
+ * @param {NodeListOf<Element>} items - Quantity elements (from config.quantitySelector)
+ * @param {Object} config - Site config (rowParentCount, productUrlSelector, sellerSelector, variantSelector optional)
+ * @returns {Array<{ productUrl: string, seller: string, variant: string, productName: string, entries: Array<{ row: Element, quantity: number }>, totalQuantity: number }>}
+ *   List of duplicate groups. Each group has same product (url+seller+variant) with totalQuantity > 1 or multiple rows.
+ */
+function getDuplicateGroups(items, config) {
+  const parentCount = config.rowParentCount ?? 8;
+  const groupsByKey = new Map();
+
+  items.forEach((quantityEl, index) => {
+    const row = getBasketRow(quantityEl, parentCount);
     if (!row) return;
-    const value =
-      Number(item.value ?? String(item.textContent || '').trim()) || 0;
-    if (value > 1) {
-      highlight(row);
-      if (!seenRows.has(row)) {
-        seenRows.add(row);
-        duplicateList.push({
-          name: getProductName(row, config),
-          count: value,
-        });
-      }
+    const quantity = getQuantityValue(quantityEl);
+    const productUrl = getProductUrl(row, config);
+    const key = productUrl
+      ? getItemKey(row, config)
+      : `_no_url_${index}`;
+
+    if (!groupsByKey.has(key)) {
+      groupsByKey.set(key, {
+        productUrl: productUrl || '',
+        seller: getSeller(row, config),
+        variant: getVariant(row, config),
+        productName: getProductName(row, config),
+        entries: [],
+        totalQuantity: 0,
+      });
     }
+    const group = groupsByKey.get(key);
+    group.entries.push({ row, quantity });
+    group.totalQuantity += quantity;
+  });
+
+  return [...groupsByKey.values()].filter(
+    (g) => g.totalQuantity > 1 || g.entries.length > 1
+  );
+}
+
+function checkDuplicates(items, config) {
+  const duplicateGroups = getDuplicateGroups(items, config);
+  const duplicateList = [];
+
+  duplicateGroups.forEach((group) => {
+    group.entries.forEach(({ row }) => highlight(row));
+    duplicateList.push({
+      name: group.productName,
+      count: group.totalQuantity,
+    });
   });
 
   if (duplicateList.length > 0) {
