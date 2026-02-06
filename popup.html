@@ -52,6 +52,10 @@
       border-radius: 6px;
     }
     button:hover { background: #d97706; }
+    .snooze-block { margin-top: 12px; padding-top: 10px; border-top: 1px solid #eee; }
+    .snooze-info { font-size: 12px; color: #666; margin: 0 0 8px; }
+    .btn-secondary { background: #6b7280; margin-top: 0; }
+    .btn-secondary:hover { background: #4b5563; }
   </style>
 </head>
 <body>
@@ -69,6 +73,10 @@
     Sadece aynı satıcıda uyar
   </label>
   <button type="button" id="snooze">Uyarıları 24 saat ertele</button>
+  <div id="checkoutSnoozeBlock" class="snooze-block" style="display: none;">
+    <p class="snooze-info" id="checkoutSnoozeText"></p>
+    <button type="button" id="clearCheckoutSnooze" class="btn-secondary">Ödeme onayı ertelemeyi kaldır</button>
+  </div>
   <script src="popup.js"></script>
 </body>
 </html>
