@@ -676,7 +676,7 @@ function showCheckoutDuplicateModal(filteredGroups, checkoutButton, config) {
     : defaultModalBtn;
 
   const primaryBtn = document.createElement('button');
-  primaryBtn.textContent = 'Düzelt ve devam et';
+  primaryBtn.textContent = 'Düzelt ve sepette kal';
   primaryBtn.type = 'button';
   Object.assign(primaryBtn.style, {
     width: '100%',
@@ -741,7 +741,7 @@ function showCheckoutDuplicateModal(filteredGroups, checkoutButton, config) {
 
   primaryBtn.addEventListener('click', () => {
     filteredGroups.forEach((g) => reduceGroupTo1(g, config));
-    closeAndProceed();
+    cleanupOverlay();
   });
   primaryBtn.addEventListener('mouseenter', () => {
     primaryBtn.style.background = btnStyle.hover;
@@ -781,7 +781,18 @@ function showCheckoutDuplicateModal(filteredGroups, checkoutButton, config) {
     secondaryBtn.style.background = 'transparent';
   });
 
-  modal.append(title, description, list, primaryBtn, secondaryBtn);
+  const disclaimer = document.createElement('p');
+  disclaimer.textContent =
+    'Sepetinizden siz sorumlusunuz. Eklenti adet düzeltmelerinin her sitede veya her durumda uygulanacağını garanti etmez; ödeme öncesi sepetinizi kontrol etmenizi öneririz.';
+  Object.assign(disclaimer.style, {
+    margin: '14px 0 0',
+    padding: '0',
+    fontSize: '11px',
+    color: '#888',
+    lineHeight: '1.4',
+  });
+
+  modal.append(title, description, list, primaryBtn, secondaryBtn, disclaimer);
   overlay.appendChild(modal);
 
   overlay.addEventListener('click', (e) => {
