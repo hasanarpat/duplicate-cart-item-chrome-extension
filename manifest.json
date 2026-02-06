@@ -13,7 +13,11 @@
     {
       "matches": [
         "https://www.trendyol.com/*",
-        "https://checkout.hepsiburada.com/*"
+        "https://checkout.hepsiburada.com/*",
+        "https://www.trendyol-milla.com/*",
+        "https://www.boyner.com.tr/*",
+        "https://www.amazon.com.tr/*",
+        "https://www.teknosa.com/*"
       ],
       "js": ["content.js"]
     }

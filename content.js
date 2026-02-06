@@ -23,6 +23,34 @@ const SITE_CONFIG = {
       'a[aria-label="Ürünü Azalt"], a[aria-label="Ürünü Arttır"]',
     checkoutButtonSelector: '#continue_step_btn',
   },
+  'www.trendyol-milla.com': {
+    quantitySelector: 'input[name="quantity"]',
+    rowParentCount: 6,
+    productNameSelector: null,
+    quantityButtonSelectors: null,
+    checkoutButtonSelector: null,
+  },
+  'www.boyner.com.tr': {
+    quantitySelector: 'input[name="quantity"]',
+    rowParentCount: 6,
+    productNameSelector: null,
+    quantityButtonSelectors: null,
+    checkoutButtonSelector: null,
+  },
+  'www.amazon.com.tr': {
+    quantitySelector: 'input[name="quantity"]',
+    rowParentCount: 6,
+    productNameSelector: null,
+    quantityButtonSelectors: null,
+    checkoutButtonSelector: null,
+  },
+  'www.teknosa.com': {
+    quantitySelector: 'input[name="quantity"]',
+    rowParentCount: 6,
+    productNameSelector: null,
+    quantityButtonSelectors: null,
+    checkoutButtonSelector: null,
+  },
 };
 
 function getSiteConfig() {
@@ -214,7 +242,7 @@ function showWarning(duplicateList) {
   const listWrapper = document.createElement('div');
   listWrapper.className = 'duplicate-warning-list-wrapper';
   listWrapper.style.cssText =
-    'height: 180px; overflow-y: scroll; overflow-x: hidden; margin-top: 6px; flex-shrink: 0;';
+    'max-height: 180px; overflow-y: auto; overflow-x: hidden; margin-top: 6px; flex-shrink: 0;';
 
   const list = document.createElement('ul');
   list.className = 'duplicate-warning-list';
