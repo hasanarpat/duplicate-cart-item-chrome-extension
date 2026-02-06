@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Trendyol Duplicate Guard",
+  "name": "Cart Duplicate Checker",
   "version": "1.0.0",
   "description": "Trendyol, Hepsiburada, Amazon, Boyner, Teknosa sepetlerinde aynı üründen birden fazla adet uyarısı verir.",
   "icons": {
