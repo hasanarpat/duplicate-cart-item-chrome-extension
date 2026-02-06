@@ -39,11 +39,12 @@ const SITE_CONFIG = {
     checkoutButtonSelector: null,
   },
   'www.amazon.com.tr': {
-    quantitySelector: 'input[name="quantity"]',
-    rowParentCount: 6,
-    productNameSelector: null,
-    quantityButtonSelectors: null,
-    checkoutButtonSelector: null,
+    quantitySelector: '[data-a-selector="inner-value"]',
+    rowParentCount: 11,
+    productNameSelector: '.sc-product-title',
+    quantityButtonSelectors:
+      '[data-a-selector="decrement"], [data-a-selector="increment"]',
+    checkoutButtonSelector: '[data-feature-id="proceed-to-checkout-action"]',
   },
   'www.teknosa.com': {
     quantitySelector: 'input[name="quantity"]',
@@ -121,8 +122,6 @@ function runDuplicateCheck() {
   const config = getSiteConfig();
   if (!config) return;
   const items = document.querySelectorAll(config.quantitySelector);
-  console.log(items, 'items');
-  console.log(config, 'config');
   if (items.length === 0) return;
   unhighlightAll();
   checkDuplicates(items, config);
@@ -152,7 +151,8 @@ function checkDuplicates(items, config) {
   items.forEach((item) => {
     const row = getBasketRow(item, parentCount);
     if (!row) return;
-    const value = Number(item.value) || 0;
+    const value =
+      Number(item.value ?? String(item.textContent || '').trim()) || 0;
     if (value > 1) {
       highlight(row);
       if (!seenRows.has(row)) {
@@ -329,7 +329,10 @@ function initQuantityChangeListener() {
   const runOnQuantityChange = (e) => {
     const config = getSiteConfig();
     if (!config) return;
-    if (typeof e.target.matches === 'function' && e.target.matches(config.quantitySelector)) {
+    if (
+      typeof e.target.matches === 'function' &&
+      e.target.matches(config.quantitySelector)
+    ) {
       setTimeout(runDuplicateCheck, 200);
     }
   };
