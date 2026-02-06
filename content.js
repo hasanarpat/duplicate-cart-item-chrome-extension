@@ -74,19 +74,99 @@ function getSiteConfig() {
   return SITE_CONFIG[location.hostname] || null;
 }
 
+const extensionStorage =
+  (typeof chrome !== 'undefined' && chrome.storage) ||
+  (typeof browser !== 'undefined' && browser.storage) ||
+  null;
+
+const SETTINGS_DEFAULTS = {
+  duplicateGuardEnabled: true,
+  minQuantityToWarn: 2,
+  warnOnlySameSeller: false,
+  snoozeUntil: 0,
+};
+
+const CHECKOUT_MODAL_SNOOZE_KEY = 'checkoutModalSnoozeUntil';
+
+let settings = { ...SETTINGS_DEFAULTS };
+let checkoutModalSnoozeUntil = 0;
+
+function loadSettings() {
+  if (!extensionStorage?.local?.get) return;
+  const keys = { ...SETTINGS_DEFAULTS, [CHECKOUT_MODAL_SNOOZE_KEY]: 0 };
+  extensionStorage.local.get(keys, (s) => {
+    settings = { ...SETTINGS_DEFAULTS, ...s };
+    checkoutModalSnoozeUntil = Number(s[CHECKOUT_MODAL_SNOOZE_KEY]) || 0;
+  });
+}
+
+if (extensionStorage) {
+  loadSettings();
+  extensionStorage.onChanged.addListener(loadSettings);
+}
+
+let extensionStylesInjected = false;
+
+function ensureExtensionStylesInjected() {
+  if (extensionStylesInjected) return;
+  extensionStylesInjected = true;
+
+  if (!document.getElementById('duplicate-warning-bounce')) {
+    const style = document.createElement('style');
+    style.id = 'duplicate-warning-bounce';
+    style.textContent = `
+      @keyframes bounceWarning {
+        0%   { transform: translateY(0); }
+        18%  { transform: translateY(-15px);}
+        38%  { transform: translateY(2px);}
+        52%  { transform: translateY(-7px);}
+        68%  { transform: translateY(0);}
+        100% { transform: translateY(0);}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  if (!document.getElementById('duplicate-warning-list-style')) {
+    const listStyle = document.createElement('style');
+    listStyle.id = 'duplicate-warning-list-style';
+    listStyle.textContent = `
+      #duplicate-warning .duplicate-warning-list {
+        list-style-type: disc !important;
+        list-style-position: outside !important;
+      }
+      #duplicate-warning .duplicate-warning-list-wrapper {
+        -webkit-overflow-scrolling: touch;
+      }
+    `;
+    document.head.appendChild(listStyle);
+  }
+
+  if (!document.getElementById('duplicheck-modal-button-style')) {
+    const modalStyle = document.createElement('style');
+    modalStyle.id = 'duplicheck-modal-button-style';
+    modalStyle.textContent =
+      '#checkout-modal-overlay button { text-align: center !important; }';
+    document.head.appendChild(modalStyle);
+  }
+}
+
 function isOurOwnMutation(mutations) {
   for (const m of mutations) {
     for (const n of m.addedNodes) {
       if (n.nodeType !== 1) continue;
       const el = n;
       if (el.id === 'duplicate-warning') return true;
+      if (el.id === 'checkout-modal-overlay') return true;
+      if (el.id === 'duplicate-warning-bounce') return true;
+      if (el.id === 'duplicate-warning-list-style') return true;
+      if (el.id === 'duplicheck-modal-button-style') return true;
       if (el.classList?.contains('dupli-highlight-label')) return true;
       if (el.classList?.contains('dupli-border-svg')) return true;
       if (el.classList?.contains('dupli-glow-label-style')) return true;
-      if (el.id === 'duplicate-warning-bounce') return true;
       if (
         el.querySelector?.(
-          '.dupli-highlight-label, .dupli-border-svg, #duplicate-warning',
+          '.dupli-highlight-label, .dupli-border-svg, #duplicate-warning, #checkout-modal-overlay',
         )
       )
         return true;
@@ -98,15 +178,17 @@ function isOurOwnMutation(mutations) {
 let duplicateCheckTimer = null;
 const observer = new MutationObserver((mutations) => {
   if (isOurOwnMutation(mutations)) return;
+  if (!settings.duplicateGuardEnabled || settings.snoozeUntil > Date.now())
+    return;
   const config = getSiteConfig();
   if (!config) return;
+  const items = document.querySelectorAll(config.quantitySelector);
+  if (items.length === 0) return;
   if (duplicateCheckTimer) clearTimeout(duplicateCheckTimer);
   duplicateCheckTimer = setTimeout(() => {
     duplicateCheckTimer = null;
-    const items = document.querySelectorAll(config.quantitySelector);
-    if (items.length > 0) {
-      checkDuplicates(items, config);
-    }
+    const itemsNow = document.querySelectorAll(config.quantitySelector);
+    if (itemsNow.length > 0) checkDuplicates(itemsNow, config);
   }, 200);
 });
 
@@ -134,6 +216,8 @@ function unhighlightAll() {
 }
 
 function runDuplicateCheck() {
+  if (!settings.duplicateGuardEnabled || settings.snoozeUntil > Date.now())
+    return;
   const config = getSiteConfig();
   if (!config) return;
   const items = document.querySelectorAll(config.quantitySelector);
@@ -225,6 +309,48 @@ function getQuantityValue(quantityEl) {
 }
 
 /**
+ * Set quantity in a cart row to a target value. Works with input or +/- button UI.
+ */
+function setQuantityInRow(row, targetValue, config) {
+  const quantityEl = row.querySelector(config.quantitySelector);
+  if (!quantityEl) return;
+  const current = getQuantityValue(quantityEl);
+  if (current === targetValue) return;
+  if (quantityEl.tagName === 'INPUT' || quantityEl.getAttribute?.('contenteditable') === 'true') {
+    quantityEl.value = String(targetValue);
+    quantityEl.dispatchEvent(new Event('input', { bubbles: true }));
+    quantityEl.dispatchEvent(new Event('change', { bubbles: true }));
+    return;
+  }
+  const decrementSel = config.quantityButtonSelectors?.split(',')[0]?.trim();
+  const incrementSel = config.quantityButtonSelectors?.split(',')[1]?.trim();
+  const decBtn = decrementSel ? row.querySelector(decrementSel) : null;
+  const incBtn = incrementSel ? row.querySelector(incrementSel) : null;
+  const clicks = current - targetValue;
+  if (clicks > 0 && decBtn) {
+    for (let i = 0; i < clicks; i++) {
+      setTimeout(() => decBtn.click(), i * 120);
+    }
+  } else if (clicks < 0 && incBtn) {
+    for (let i = 0; i < -clicks; i++) {
+      setTimeout(() => incBtn.click(), i * 120);
+    }
+  }
+}
+
+/**
+ * Reduce a duplicate group to total quantity 1: first row = 1, others = 0.
+ */
+function reduceGroupTo1(group, config) {
+  const entries = group.entries || [];
+  if (entries.length === 0) return;
+  setQuantityInRow(entries[0].row, 1, config);
+  for (let i = 1; i < entries.length; i++) {
+    setQuantityInRow(entries[i].row, 0, config);
+  }
+}
+
+/**
  * Improved duplicate detection. Products are duplicates ONLY if:
  * - Product URL (without query params) is the same
  * - Seller is the same (if seller info exists)
@@ -270,10 +396,10 @@ function getDuplicateGroups(items, config) {
 }
 
 function checkDuplicates(items, config) {
-  const duplicateGroups = getDuplicateGroups(items, config);
+  const filtered = getFilteredDuplicateGroups(items, config);
   const duplicateList = [];
 
-  duplicateGroups.forEach((group) => {
+  filtered.forEach((group) => {
     group.entries.forEach(({ row }) => highlight(row));
     duplicateList.push({
       name: group.productName,
@@ -281,9 +407,7 @@ function checkDuplicates(items, config) {
     });
   });
 
-  if (duplicateList.length > 0) {
-    showWarning(duplicateList);
-  } else if (items.length > 0) {
+  if (duplicateList.length === 0 && items.length > 0) {
     removeWarning();
   }
 }
@@ -292,25 +416,25 @@ function highlight(item) {
   if (!item || !item.style) return;
   Object.assign(item.style, {
     position: 'relative',
-    border: '2px solid #e53935',
+    border: '1px solid #f59e0b',
     borderRadius: '8px',
-    boxShadow: '0 2px 8px rgba(229,57,53,0.2)',
+    boxShadow: '0 0 0 1px rgba(245,158,11,0.15)',
   });
   if (item.querySelector('.dupli-highlight-label')) return;
   const label = document.createElement('div');
   label.className = 'dupli-highlight-label';
-  label.textContent = 'Çoğaltılmış Ürün';
+  label.textContent = 'Bu ürün birden fazla kez eklenmiş';
   Object.assign(label.style, {
     position: 'absolute',
     top: '-10px',
     left: '12px',
-    background: '#fff5f5',
-    color: '#c62828',
-    fontSize: '12px',
-    fontWeight: '600',
+    background: '#fffbeb',
+    color: '#b45309',
+    fontSize: '11px',
+    fontWeight: '500',
     padding: '2px 8px',
     borderRadius: '4px',
-    border: '1px solid #e57373',
+    border: '1px solid #fcd34d',
     zIndex: 10,
   });
   item.appendChild(label);
@@ -318,6 +442,7 @@ function highlight(item) {
 
 function showWarning(duplicateList) {
   removeWarning();
+  ensureExtensionStylesInjected();
 
   const box = document.createElement('div');
   box.id = 'duplicate-warning';
@@ -375,7 +500,7 @@ function showWarning(duplicateList) {
   box.appendChild(listWrapper);
 
   const brand = document.createElement('span');
-  brand.innerText = '🛒 Duplicheck Extension';
+  brand.innerText = '🛒 Duplicheck Eklentisi';
   Object.assign(brand.style, {
     marginTop: '10px',
     fontSize: '12px',
@@ -386,37 +511,6 @@ function showWarning(duplicateList) {
     alignSelf: 'flex-end',
   });
   box.appendChild(brand);
-
-  if (!document.getElementById('duplicate-warning-bounce')) {
-    const style = document.createElement('style');
-    style.id = 'duplicate-warning-bounce';
-    style.innerHTML = `
-      @keyframes bounceWarning {
-        0%   { transform: translateY(0); }
-        18%  { transform: translateY(-15px);}
-        38%  { transform: translateY(2px);}
-        52%  { transform: translateY(-7px);}
-        68%  { transform: translateY(0);}
-        100% { transform: translateY(0);}
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  if (!document.getElementById('duplicate-warning-list-style')) {
-    const listStyle = document.createElement('style');
-    listStyle.id = 'duplicate-warning-list-style';
-    listStyle.textContent = `
-      #duplicate-warning .duplicate-warning-list {
-        list-style-type: disc !important;
-        list-style-position: outside !important;
-      }
-      #duplicate-warning .duplicate-warning-list-wrapper {
-        -webkit-overflow-scrolling: touch;
-      }
-    `;
-    document.head.appendChild(listStyle);
-  }
 
   document.body.appendChild(box);
 }
@@ -457,11 +551,19 @@ function initQuantityChangeListener() {
 }
 
 let checkoutModalAlreadyShown = false;
+let checkoutProceedingProgrammatically = false;
 
-function showCheckoutModal() {
+/**
+ * Show confirmation modal when checkout is clicked and duplicates exist.
+ * @param {Array} filteredGroups - from getFilteredDuplicateGroups
+ * @param {Element} checkoutButton - the button that was clicked
+ * @param {Object} config - site config
+ */
+function showCheckoutDuplicateModal(filteredGroups, checkoutButton, config) {
   if (checkoutModalAlreadyShown) return;
   const existing = document.getElementById('checkout-modal-overlay');
   if (existing) return;
+  if (!filteredGroups?.length) return;
 
   checkoutModalAlreadyShown = true;
 
@@ -470,7 +572,7 @@ function showCheckoutModal() {
   Object.assign(overlay.style, {
     position: 'fixed',
     inset: '0',
-    background: 'rgba(0,0,0,0.5)',
+    background: 'rgba(0,0,0,0.45)',
     zIndex: 10001,
     display: 'flex',
     alignItems: 'center',
@@ -482,43 +584,92 @@ function showCheckoutModal() {
   Object.assign(modal.style, {
     background: '#fff',
     borderRadius: '14px',
-    padding: '28px 24px',
-    maxWidth: '380px',
+    padding: '24px 22px',
+    maxWidth: '420px',
     width: '100%',
-    boxShadow: '0 24px 48px rgba(0,0,0,0.2)',
-    textAlign: 'center',
+    boxShadow: '0 24px 48px rgba(0,0,0,0.18)',
+    textAlign: 'left',
   });
 
-  const icon = document.createElement('div');
-  icon.textContent = '🛒';
-  icon.style.cssText = 'font-size: 48px; margin-bottom: 12px;';
+  const title = document.createElement('h2');
+  title.textContent = 'Bir saniye';
+  Object.assign(title.style, {
+    margin: '0 0 8px',
+    fontSize: '20px',
+    fontWeight: '600',
+    color: '#1a1a1a',
+  });
 
-  const title = document.createElement('div');
-  title.textContent = 'Ödeme butonuna tıklandı';
-  title.style.cssText =
-    'font-size: 18px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px;';
+  const description = document.createElement('p');
+  description.textContent =
+    'Bazı ürünleri birden fazla kez eklenmiş olabilirsiniz.';
+  Object.assign(description.style, {
+    margin: '0 0 18px',
+    fontSize: '14px',
+    color: '#555',
+    lineHeight: '1.45',
+  });
 
-  const message = document.createElement('p');
-  message.textContent =
-    'Sepetinizde aynı üründen birden çok defa var, devam etmeden önce gözden geçirin.';
-  message.style.cssText =
-    'font-size: 14px; color: #555; line-height: 1.5; margin: 0 0 24px;';
+  const list = document.createElement('div');
+  list.style.cssText =
+    'max-height: 200px; overflow-y: auto; margin-bottom: 20px; border: 1px solid #eee; border-radius: 8px; padding: 8px;';
 
-  const config = getSiteConfig();
+  filteredGroups.forEach((group) => {
+    const row = document.createElement('div');
+    row.style.cssText =
+      'display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 8px; border-bottom: 1px solid #f0f0f0;';
+    if (filteredGroups.indexOf(group) === filteredGroups.length - 1)
+      row.style.borderBottom = 'none';
+
+    const left = document.createElement('div');
+    left.style.cssText = 'flex: 1; minWidth: 0;';
+    const name = document.createElement('div');
+    name.textContent = group.productName || 'Ürün';
+    name.style.cssText = 'fontSize: 13px; fontWeight: 500; color: #333; overflow: hidden; textOverflow: ellipsis; whiteSpace: nowrap;';
+    const qty = document.createElement('div');
+    qty.textContent = `Adet: ${group.totalQuantity}`;
+    qty.style.cssText = 'fontSize: 12px; color: #666; marginTop: 2px;';
+    left.append(name, qty);
+
+    const reduceBtn = document.createElement('button');
+    reduceBtn.textContent = '1 adete düşür';
+    reduceBtn.type = 'button';
+    Object.assign(reduceBtn.style, {
+      padding: '6px 12px',
+      fontSize: '12px',
+      fontWeight: '500',
+      color: '#b45309',
+      background: '#fffbeb',
+      border: '1px solid #fcd34d',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      flexShrink: '0',
+    });
+    reduceBtn.addEventListener('click', () => {
+      reduceGroupTo1(group, config);
+      qty.textContent = 'Adet: 1';
+      reduceBtn.disabled = true;
+      reduceBtn.style.opacity = '0.6';
+    });
+
+    row.append(left, reduceBtn);
+    list.appendChild(row);
+  });
+
   const defaultModalBtn = {
-    background: 'linear-gradient(135deg, #f27a24 0%, #e06d1a 100%)',
-    hover: 'linear-gradient(135deg, #e06d1a 0%, #c96118 100%)',
+    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    hover: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
     textColor: '#fff',
-    boxShadow: '0 4px 12px rgba(242,122,36,0.35)',
+    boxShadow: '0 4px 12px rgba(245,158,11,0.35)',
   };
   const btnStyle = config?.modalButton
     ? { ...defaultModalBtn, ...config.modalButton }
     : defaultModalBtn;
 
-  const btn = document.createElement('button');
-  btn.textContent = 'Tamam';
-  btn.type = 'button';
-  Object.assign(btn.style, {
+  const primaryBtn = document.createElement('button');
+  primaryBtn.textContent = 'Düzelt ve devam et';
+  primaryBtn.type = 'button';
+  Object.assign(primaryBtn.style, {
     width: '100%',
     padding: '12px 24px',
     fontSize: '15px',
@@ -531,45 +682,155 @@ function showCheckoutModal() {
     boxShadow: btnStyle.boxShadow,
     textAlign: 'center',
     display: 'block',
-  });
-  btn.addEventListener('click', () => overlay.remove());
-  btn.addEventListener('mouseenter', () => {
-    btn.style.background = btnStyle.hover;
-  });
-  btn.addEventListener('mouseleave', () => {
-    btn.style.background = btnStyle.background;
+    marginBottom: '10px',
   });
 
-  modal.append(icon, title, message, btn);
+  const focusables = () =>
+    overlay.querySelectorAll(
+      'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+
+  function handleKeydown(e) {
+    if (e.key === 'Escape') {
+      closeModal();
+      e.preventDefault();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    const list = focusables();
+    if (list.length === 0) return;
+    const first = list[0];
+    const last = list[list.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        last.focus();
+        e.preventDefault();
+      }
+    } else {
+      if (document.activeElement === last) {
+        first.focus();
+        e.preventDefault();
+      }
+    }
+  }
+
+  function cleanupOverlay() {
+    overlay.removeEventListener('keydown', handleKeydown);
+    overlay.remove();
+    checkoutModalAlreadyShown = false;
+  }
+
+  function closeModal() {
+    cleanupOverlay();
+  }
+
+  const closeAndProceed = () => {
+    cleanupOverlay();
+    checkoutProceedingProgrammatically = true;
+    checkoutButton.click();
+  };
+
+  primaryBtn.addEventListener('click', () => {
+    filteredGroups.forEach((g) => reduceGroupTo1(g, config));
+    closeAndProceed();
+  });
+  primaryBtn.addEventListener('mouseenter', () => {
+    primaryBtn.style.background = btnStyle.hover;
+  });
+  primaryBtn.addEventListener('mouseleave', () => {
+    primaryBtn.style.background = btnStyle.background;
+  });
+
+  const secondaryBtn = document.createElement('button');
+  secondaryBtn.textContent = 'Biliyorum, yine de devam et';
+  secondaryBtn.type = 'button';
+  Object.assign(secondaryBtn.style, {
+    width: '100%',
+    padding: '10px 24px',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#555',
+    background: 'transparent',
+    border: '1px solid #ccc',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    textAlign: 'center',
+    display: 'block',
+  });
+  secondaryBtn.addEventListener('click', () => {
+    const until = Date.now() + 24 * 60 * 60 * 1000;
+    checkoutModalSnoozeUntil = until;
+    if (extensionStorage?.local?.set) {
+      extensionStorage.local.set({ [CHECKOUT_MODAL_SNOOZE_KEY]: until });
+    }
+    closeAndProceed();
+  });
+  secondaryBtn.addEventListener('mouseenter', () => {
+    secondaryBtn.style.background = '#f5f5f5';
+  });
+  secondaryBtn.addEventListener('mouseleave', () => {
+    secondaryBtn.style.background = 'transparent';
+  });
+
+  modal.append(title, description, list, primaryBtn, secondaryBtn);
   overlay.appendChild(modal);
 
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove();
+    if (e.target === overlay) {
+      closeModal();
+    }
   });
 
-  if (!document.getElementById('duplicheck-modal-button-style')) {
-    const style = document.createElement('style');
-    style.id = 'duplicheck-modal-button-style';
-    style.textContent =
-      '#checkout-modal-overlay button { text-align: center !important; }';
-    document.head.appendChild(style);
-  }
-
+  ensureExtensionStylesInjected();
   document.body.appendChild(overlay);
+
+  const firstFocusable = focusables()[0];
+  if (firstFocusable) firstFocusable.focus();
+
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', title.id || 'duplicheck-modal-title');
+  if (!title.id) title.id = 'duplicheck-modal-title';
+
+  overlay.addEventListener('keydown', handleKeydown);
+}
+
+function getFilteredDuplicateGroups(items, config) {
+  const groups = getDuplicateGroups(items, config);
+  const minQty = Math.max(1, Number(settings.minQuantityToWarn) || 2);
+  return groups.filter(
+    (g) =>
+      g.totalQuantity >= minQty &&
+      (!settings.warnOnlySameSeller || (g.seller && g.seller.trim() !== ''))
+  );
 }
 
 function initCheckoutButtonListener() {
   document.body.addEventListener(
     'click',
     (e) => {
+      if (!settings.duplicateGuardEnabled || settings.snoozeUntil > Date.now())
+        return;
       const config = getSiteConfig();
       if (!config?.checkoutButtonSelector) return;
       const btn = e.target.closest(config.checkoutButtonSelector);
       if (!btn) return;
-      if (checkoutModalAlreadyShown) return;
-      e.preventDefault();
-      e.stopPropagation();
-      showCheckoutModal();
+
+      if (checkoutProceedingProgrammatically) {
+        checkoutProceedingProgrammatically = false;
+        return;
+      }
+
+      const items = document.querySelectorAll(config.quantitySelector);
+      const filtered = getFilteredDuplicateGroups(items, config);
+      if (filtered.length > 0) {
+        if (Date.now() < checkoutModalSnoozeUntil) {
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        showCheckoutDuplicateModal(filtered, btn, config);
+      }
     },
     true,
   );
