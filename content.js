@@ -34,7 +34,8 @@ const SITE_CONFIG = {
   'www.boyner.com.tr': {
     quantitySelector: 'input[class*="product-counter_productCounterInput"]',
     rowParentCount: 5,
-    productNameSelector: '[class*="product-info_productInfoBoxTextWrapperTitle"]',
+    productNameSelector:
+      '[class*="product-info_productInfoBoxTextWrapperTitle"]',
     quantityButtonSelectors: '[class*="product-counter_productCounterButton"]',
     checkoutButtonSelector: '[aria-label="SEPETİ ONAYLA"]',
     modalButton: {
@@ -61,9 +62,9 @@ const SITE_CONFIG = {
   'www.teknosa.com': {
     quantitySelector: 'input[name="quantity"]',
     rowParentCount: 6,
-    productNameSelector: null,
-    quantityButtonSelectors: null,
-    checkoutButtonSelector: null,
+    productNameSelector: '.prd-row-title-cart a',
+    quantityButtonSelectors: '.quantity-left-minus, .quantity-right-plus',
+    checkoutButtonSelector: '.js-checkout-controls',
   },
 };
 
