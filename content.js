@@ -13,7 +13,7 @@ const SITE_CONFIG = {
     productNameSelector: '[class*="product_name"]',
     quantityButtonSelectors:
       'a[aria-label="Ürünü Azalt"], a[aria-label="Ürünü Arttır"]',
-    checkoutButtonSelector: null,
+    checkoutButtonSelector: '#continue_step_btn',
   },
   'checkout.hepsiburada.com': {
     quantitySelector: 'input[name="quantity"]',
@@ -21,7 +21,7 @@ const SITE_CONFIG = {
     productNameSelector: '[class*="product_name"]',
     quantityButtonSelectors:
       'a[aria-label="Ürünü Azalt"], a[aria-label="Ürünü Arttır"]',
-    checkoutButtonSelector: null,
+    checkoutButtonSelector: '#continue_step_btn',
   },
 };
 
