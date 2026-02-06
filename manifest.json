@@ -2,13 +2,12 @@
   "manifest_version": 3,
   "name": "Trendyol Duplicate Guard",
   "version": "1.0.0",
-  "description": "Trendyol sepetinde aynı ürünü yanlışlıkla birden fazla eklemeyi önler.",
+  "description": "Trendyol, Hepsiburada, Amazon, Boyner, Teknosa sepetlerinde aynı üründen birden fazla adet uyarısı verir.",
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "permissions": ["activeTab"],
   "content_scripts": [
     {
       "matches": [
@@ -21,5 +20,11 @@
       ],
       "js": ["content.js"]
     }
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "duplicheck-cart-guard@addon",
+      "strict_min_version": "109.0"
+    }
+  }
 }
