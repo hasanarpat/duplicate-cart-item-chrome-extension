@@ -54,6 +54,8 @@ const SITE_CONFIG = {
     productNameSelector: '.sc-product-title',
     quantityButtonSelectors:
       '[data-a-selector="decrement"], [data-a-selector="increment"]',
+    quantityWidgetSelector: '[data-a-selector="quantity-dropdown"]',
+    quantityClickDelay: 220,
     checkoutButtonSelector: '[data-feature-id="proceed-to-checkout-action"]',
     modalButton: {
       background: '#ffce12',
@@ -313,6 +315,8 @@ function getQuantityValue(quantityEl) {
  * Set quantity in a cart row to a target value. Works with input or +/- button UI.
  * When config.setQuantityViaButtons is true, always use +/- clicks (for sites where
  * input is controlled and direct value change does not persist, e.g. Boyner).
+ * When quantity element is not an input (e.g. span like Amazon's inner-value), use
+ * buttons if available.
  */
 function setQuantityInRow(row, targetValue, config) {
   const quantityEl = row.querySelector(config.quantitySelector);
@@ -322,25 +326,47 @@ function setQuantityInRow(row, targetValue, config) {
 
   const decrementSel = config.quantityButtonSelectors?.split(',')[0]?.trim();
   const incrementSel = config.quantityButtonSelectors?.split(',')[1]?.trim();
-  const decBtn = decrementSel ? row.querySelector(decrementSel) : null;
-  const incBtn = incrementSel ? row.querySelector(incrementSel) : null;
-  const useButtons = config.setQuantityViaButtons && (decBtn || incBtn);
+  let decBtn = decrementSel ? row.querySelector(decrementSel) : null;
+  let incBtn = incrementSel ? row.querySelector(incrementSel) : null;
+  if ((!decBtn || !incBtn) && config.quantityWidgetSelector) {
+    const widget = quantityEl.closest(config.quantityWidgetSelector) || row.querySelector(config.quantityWidgetSelector);
+    if (widget) {
+      if (!decBtn && decrementSel) decBtn = widget.querySelector(decrementSel);
+      if (!incBtn && incrementSel) incBtn = widget.querySelector(incrementSel);
+    }
+  }
+  if (!decBtn || !incBtn) {
+    let searchRoot = quantityEl.closest('[data-a-selector="quantity-dropdown"]') || quantityEl.parentElement;
+    for (let i = 0; i < 8 && searchRoot; i++) {
+      if (!decBtn && decrementSel) decBtn = searchRoot.querySelector(decrementSel);
+      if (!incBtn && incrementSel) incBtn = searchRoot.querySelector(incrementSel);
+      if (decBtn && incBtn) break;
+      searchRoot = searchRoot.parentElement;
+    }
+  }
+
+  const isInput =
+    quantityEl.tagName === 'INPUT' ||
+    quantityEl.getAttribute?.('contenteditable') === 'true';
+  const useButtons =
+    (config.setQuantityViaButtons || !isInput) && (decBtn || incBtn);
 
   if (useButtons) {
     const clicks = current - targetValue;
+    const delay = config.quantityClickDelay ?? 150;
     if (clicks > 0 && decBtn) {
       for (let i = 0; i < clicks; i++) {
-        setTimeout(() => decBtn.click(), i * 150);
+        setTimeout(() => decBtn.click(), i * delay);
       }
     } else if (clicks < 0 && incBtn) {
       for (let i = 0; i < -clicks; i++) {
-        setTimeout(() => incBtn.click(), i * 150);
+        setTimeout(() => incBtn.click(), i * delay);
       }
     }
     return;
   }
 
-  if (quantityEl.tagName === 'INPUT' || quantityEl.getAttribute?.('contenteditable') === 'true') {
+  if (isInput) {
     quantityEl.value = String(targetValue);
     quantityEl.dispatchEvent(new Event('input', { bubbles: true }));
     quantityEl.dispatchEvent(new Event('change', { bubbles: true }));
