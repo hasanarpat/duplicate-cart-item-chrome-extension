@@ -426,6 +426,8 @@ function showCheckoutModal() {
     borderRadius: '10px',
     cursor: 'pointer',
     boxShadow: btnStyle.boxShadow,
+    textAlign: 'center',
+    display: 'block',
   });
   btn.addEventListener('click', () => overlay.remove());
   btn.addEventListener('mouseenter', () => {
@@ -441,6 +443,14 @@ function showCheckoutModal() {
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.remove();
   });
+
+  if (!document.getElementById('duplicheck-modal-button-style')) {
+    const style = document.createElement('style');
+    style.id = 'duplicheck-modal-button-style';
+    style.textContent =
+      '#checkout-modal-overlay button { text-align: center !important; }';
+    document.head.appendChild(style);
+  }
 
   document.body.appendChild(overlay);
 }
